@@ -8,6 +8,7 @@
 
     <item
         android:id="@+id/navigation_dashboard"
+        android:icon="@drawable/ic_baseline_graphic_eq_24"
         android:title="@string/title_lab2" />
 
 </menu>
