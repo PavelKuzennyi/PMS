@@ -50,7 +50,7 @@ public class Lab3Fragment extends Fragment {
                 ImageView imageTmp = new ImageView(root.getContext());
                 imageTmp.setId(imageTmp.hashCode());
                 ConstraintLayout.LayoutParams imgParams =
-                        new ConstraintLayout.LayoutParams(200, 200);
+                        new ConstraintLayout.LayoutParams(300, 300);
                 if (book.getImagePath().length() != 0)
                     imageTmp.setImageResource(
                             getResId(book.getImagePath().toLowerCase()
@@ -108,8 +108,8 @@ public class Lab3Fragment extends Fragment {
 
                 textConstraintSet.setVerticalBias(textSubtitle.getId(), 0.25f);
 
-                textConstraintSet.setMargin(textSubtitle.getId(), ConstraintSet.TOP, 1);
-                textConstraintSet.setMargin(textSubtitle.getId(), ConstraintSet.BOTTOM, 1);
+                textConstraintSet.setMargin(textSubtitle.getId(), ConstraintSet.TOP, 2);
+                textConstraintSet.setMargin(textSubtitle.getId(), ConstraintSet.BOTTOM, 2);
 
                 textConstraintSet.applyTo(textConstraint);
 
@@ -150,7 +150,7 @@ public class Lab3Fragment extends Fragment {
             for (ConstraintLayout bookshelf :
                     booksLinear) {
                 bookshelf.getChildAt(0).setLayoutParams(
-                        new ConstraintLayout.LayoutParams(width / 3, width / 4));
+                        new ConstraintLayout.LayoutParams(width / 4, width / 3));
             }
         });
 
