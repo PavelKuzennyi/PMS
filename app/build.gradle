@@ -28,6 +28,10 @@ android {
     }
 }
 
+configurations {
+    compile.exclude group: "junit", module: "junit"
+}
+
 repositories{
     maven{ url 'https://jitpack.io'}
 }
@@ -46,6 +50,7 @@ dependencies {
     implementation 'com.llollox:androidtoggleswitch:2.0.1'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation files('libs\\MPAndroidChart-3.1.0.jar')
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
     testImplementation 'junit:junit:4.+'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'

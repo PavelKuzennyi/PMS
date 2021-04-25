@@ -17,5 +17,11 @@
         android:label="@string/title_lab2"
         tools:layout="@layout/fragment_lab2" />
 
+    <fragment
+        android:id="@+id/navigation_books"
+        android:name="ua.kpi.cosmys.io8209.ui.books.Lab3Fragment"
+        android:label="@string/title_lab3"
+        tools:layout="@layout/fragment_lab3" />
+
 
 </navigation>
