@@ -1,0 +1,4 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="false" android:drawable="@color/toggle_widget_1"  />
+    <item android:state_checked="true" android:drawable="@color/toggle_widget_2"  />
+</selector>
