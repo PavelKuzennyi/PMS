@@ -3,6 +3,7 @@
     <string name="title_lab1"> Lab1</string>
     <string name="title_lab2">Lab2</string>
     <string name="title_lab3">Lab3</string>
+    <string name="title_lab5">Lab5</string>
     <string name="textview">TextView</string>
     <string name="todo">TODO</string>
 </resources>

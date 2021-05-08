@@ -23,5 +23,11 @@
         android:label="@string/title_lab3"
         tools:layout="@layout/fragment_lab3" />
 
+    <fragment
+        android:id="@+id/navigation_gallery"
+        android:name="ua.kpi.cosmys.io8209.ui.gallery.Lab5Fragment"
+        android:label="@string/title_lab5"
+        tools:layout="@layout/fragment_lab5" />
+
 
 </navigation>
