@@ -5,9 +5,13 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,15 +22,16 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
+import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RawRes;
 import androidx.annotation.RequiresApi;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.daimajia.swipe.SwipeLayout;
@@ -36,19 +41,31 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import ua.kpi.cosmys.io8209.R;
 
 public class Lab3Fragment extends Fragment {
 
-    private HashMap<ConstraintLayout, Book> booksMap;
-    private View root;
+    private static HashMap<ConstraintLayout, Book> booksMap;
+    protected static View root;
+    private static LinearLayout bookList;
+    private static LinearLayout noItems;
+    private static ProgressBar loadingBar;
+    private static TextView noItemsText;
+    private static Set<ConstraintLayout> removeSet;
+
+    private static int backgroundResource;
 
     @SuppressLint("UseCompatLoadingForDrawables")
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -56,82 +73,57 @@ public class Lab3Fragment extends Fragment {
                              ViewGroup container, Bundle savedInstanceState) {
         root = inflater.inflate(R.layout.fragment_lab3, container, false);
 
+        setRetainInstance(true);
+
         int[] attrs = new int[]{R.attr.selectableItemBackground};
         TypedArray typedArray = getActivity().obtainStyledAttributes(attrs);
-        int backgroundResource = typedArray.getResourceId(0, 0);
+        backgroundResource = typedArray.getResourceId(0, 0);
 
-        LinearLayout bookList = root.findViewById(R.id.book_linear_scrolable);
+        bookList = root.findViewById(R.id.book_linear_scrolable);
         booksMap = new HashMap<>();
 
-        try {
-            ArrayList<Book> books = parseBooks(readTextFile(root.getContext(), R.raw.bookslist));
-            for (Book book :
-                    books) {
-                addNewBook(root, bookList, book, backgroundResource);
-            }
-        } catch (ParseException e) {
-            System.err.println("Incorrect content of JSON file!");
-            e.printStackTrace();
-        }
-
-
         SearchView simpleSearchView = root.findViewById(R.id.btn_search);
+        noItems = root.findViewById(R.id.no_items_view);
+        loadingBar = root.findViewById(R.id.no_items_progressbar);
+        noItemsText = root.findViewById(R.id.no_items_text);
+
+        removeSet = new HashSet<>();
 
         simpleSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String newText) {
-                int countResults = 0;
-                for (ConstraintLayout book :
-                        booksMap.keySet()) {
-                    if (newText == null){
-                        ((SwipeLayout) book.getParent()).setVisibility(View.VISIBLE);
-                        countResults++;
-                    }
-                    else {
-                        if (booksMap.get(book).getTitle().toLowerCase()
-                                .contains(newText.toLowerCase()) || newText.length() == 0){
-                            ((SwipeLayout) book.getParent()).setVisibility(View.VISIBLE);
-                            countResults++;
-                        }
-                        else
-                            ((SwipeLayout) book.getParent()).setVisibility(View.GONE);
-                    }
-                }
-
-                if (countResults == 0){
-                    root.findViewById(R.id.no_items_view).setVisibility(View.VISIBLE);
+                removeSet.addAll(booksMap.keySet());
+                if (newText.length() >= 3) {
+                    AsyncLoadBooks aTask = new AsyncLoadBooks();
+                    noItems.setVisibility(View.VISIBLE);
+                    loadingBar.setVisibility(View.VISIBLE);
+                    noItemsText.setVisibility(View.GONE);
+                    aTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, newText);
                 }
                 else {
-                    root.findViewById(R.id.no_items_view).setVisibility(View.GONE);
+                    for (ConstraintLayout constraintLayout : removeSet) {
+                        binClicked(constraintLayout);
+                    }
+                    removeSet.clear();
                 }
                 return false;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                int countResults = 0;
-                for (ConstraintLayout book :
-                        booksMap.keySet()) {
-                    if (newText == null){
-                        ((SwipeLayout) book.getParent()).setVisibility(View.VISIBLE);
-                        countResults++;
-                    }
-                    else {
-                        if (booksMap.get(book).getTitle().toLowerCase()
-                                .contains(newText.toLowerCase()) || newText.length() == 0){
-                            ((SwipeLayout) book.getParent()).setVisibility(View.VISIBLE);
-                            countResults++;
-                        }
-                        else
-                            ((SwipeLayout) book.getParent()).setVisibility(View.GONE);
-                    }
-                }
-
-                if (countResults == 0){
-                    root.findViewById(R.id.no_items_view).setVisibility(View.VISIBLE);
+                removeSet.addAll(booksMap.keySet());
+                if (newText.length() >= 3) {
+                    AsyncLoadBooks aTask = new AsyncLoadBooks();
+                    noItems.setVisibility(View.VISIBLE);
+                    loadingBar.setVisibility(View.VISIBLE);
+                    noItemsText.setVisibility(View.GONE);
+                    aTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, newText);
                 }
                 else {
-                    root.findViewById(R.id.no_items_view).setVisibility(View.GONE);
+                    for (ConstraintLayout constraintLayout : removeSet) {
+                        binClicked(constraintLayout);
+                    }
+                    removeSet.clear();
                 }
                 return false;
             }
@@ -155,11 +147,11 @@ public class Lab3Fragment extends Fragment {
                         inputSubtitle.getText().toString().length() != 0 &&
                         inputPrice.getText().toString().length() != 0) {
 
-                    addNewBook(root, bookList, new Book(inputTitle.getText().toString(),
-                                    inputSubtitle.getText().toString(), "$" +
-                                    inputPrice.getText().toString()),
-                            backgroundResource);
+                    addNewBook(new Book(inputTitle.getText().toString(),
+                            inputSubtitle.getText().toString(),
+                            inputPrice.getText().toString()));
                     changeLaySizes();
+                    noItems.setVisibility(View.GONE);
 
                     popupWindow.dismiss();
                 }
@@ -173,6 +165,29 @@ public class Lab3Fragment extends Fragment {
         changeLaySizes();
 
         return root;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    protected static void loadBooks(ArrayList<Book> books){
+        if (books != null) {
+            if (books.size() > 0) {
+                noItems.setVisibility(View.GONE);
+                for (Book book :
+                        books) {
+                    addNewBook(book);
+                }
+                for (ConstraintLayout constraintLayout : removeSet) {
+                    binClicked(constraintLayout);
+                }
+                removeSet.clear();
+            } else {
+                noItems.setVisibility(View.VISIBLE);
+            }
+        }
+        else
+            Toast.makeText(root.getContext(), "Cannot load data!", Toast.LENGTH_LONG).show();
+        loadingBar.setVisibility(View.GONE);
+        noItemsText.setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -196,8 +211,7 @@ public class Lab3Fragment extends Fragment {
 
     @SuppressLint({"UseCompatLoadingForDrawables", "RtlHardcoded"})
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private void addNewBook(View root, LinearLayout bookList,
-                            Book book, int backgroundResource){
+    private static void addNewBook(Book book){
         SwipeLayout swipeLay = new SwipeLayout(root.getContext());
         swipeLay.setShowMode(SwipeLayout.ShowMode.PullOut);
         swipeLay.setLayoutParams(
@@ -229,7 +243,7 @@ public class Lab3Fragment extends Fragment {
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         swipeLay.addView(bookLayTmp, 1);
 
-        btnBin.setOnClickListener(v -> binClicked(bookList, swipeLay, booksMap, bookLayTmp));
+        btnBin.setOnClickListener(v -> binClicked(bookLayTmp));
 
         bookLayTmp.setOnClickListener(v -> {
             if (book.getIsbn13().length() != 0 && !book.getIsbn13().equals("noid")) {
@@ -238,13 +252,24 @@ public class Lab3Fragment extends Fragment {
             }
         });
 
+        ProgressBar loadingImageBar = new ProgressBar(root.getContext());
+        loadingImageBar.getIndeterminateDrawable().setColorFilter(
+                ContextCompat.getColor(root.getContext(), R.color.purple_500),
+                android.graphics.PorterDuff.Mode.MULTIPLY);
+        loadingImageBar.setVisibility(View.GONE);
+        loadingImageBar.setId(loadingImageBar.hashCode());
+        bookLayTmp.addView(loadingImageBar);
+
         ImageView imageTmp = new ImageView(root.getContext());
         imageTmp.setId(imageTmp.hashCode());
         ConstraintLayout.LayoutParams imgParams =
                 new ConstraintLayout.LayoutParams(300, 300);
-        imageTmp.setImageResource(
-                (book.getImagePath().length() == 0)? R.drawable.no_image:
-                        getResId(book.getImagePath().toLowerCase().split("\\.")[0], R.drawable.class));
+        imageTmp.setImageResource(R.drawable.no_image);
+        if (book.getImagePath().length() != 0){
+            imageTmp.setVisibility(View.INVISIBLE);
+            loadingImageBar.setVisibility(View.VISIBLE);
+            new DownloadImageTask(imageTmp, loadingImageBar, root.getContext()).execute(book.getImagePath());
+        }
         bookLayTmp.addView(imageTmp, 0, imgParams);
 
         ConstraintLayout textConstraint = new ConstraintLayout(root.getContext());
@@ -321,6 +346,15 @@ public class Lab3Fragment extends Fragment {
         bookLayTmpSet.connect(textConstraint.getId(), ConstraintSet.START,
                 imageTmp.getId(), ConstraintSet.END);
 
+        bookLayTmpSet.connect(loadingImageBar.getId(), ConstraintSet.START,
+                imageTmp.getId(), ConstraintSet.START);
+        bookLayTmpSet.connect(loadingImageBar.getId(), ConstraintSet.TOP,
+                imageTmp.getId(), ConstraintSet.TOP);
+        bookLayTmpSet.connect(loadingImageBar.getId(), ConstraintSet.END,
+                imageTmp.getId(), ConstraintSet.END);
+        bookLayTmpSet.connect(loadingImageBar.getId(), ConstraintSet.BOTTOM,
+                imageTmp.getId(), ConstraintSet.BOTTOM);
+
         bookLayTmpSet.constrainWidth(textConstraint.getId(), ConstraintSet.MATCH_CONSTRAINT);
         bookLayTmpSet.constrainHeight(textConstraint.getId(), ConstraintSet.MATCH_CONSTRAINT);
 
@@ -329,61 +363,123 @@ public class Lab3Fragment extends Fragment {
         booksMap.put(bookLayTmp, book);
     }
 
-    private void binClicked(LinearLayout bookshelf,
-                            SwipeLayout swipeLayout,
-                            HashMap<ConstraintLayout, Book> map,
-                            ConstraintLayout key){
-        map.remove(key);
-        swipeLayout.removeAllViewsInLayout();
-        bookshelf.removeView(swipeLayout);
+    private static void binClicked(ConstraintLayout key){
+        booksMap.remove(key);
+        //((SwipeLayout) key.getParent()).removeAllViewsInLayout();
+        bookList.removeView(((SwipeLayout) key.getParent()));
+        if (booksMap.keySet().isEmpty()){
+            noItems.setVisibility(View.VISIBLE);
+            noItemsText.setVisibility(View.VISIBLE);
+        }
     }
 
-    private static String readTextFile(Context context, @RawRes int id){
-        InputStream inputStream = context.getResources().openRawResource(id);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    private static class AsyncLoadBooks extends AsyncTask<String, Void, ArrayList<Book>> {
+        private String getRequest(String url){
+            StringBuilder result = new StringBuilder();
+            try {
+                URL getReq = new URL(url);
+                URLConnection bookConnection = getReq.openConnection();
+                BufferedReader in = new BufferedReader(new InputStreamReader(bookConnection.getInputStream()));
+                String inputLine;
 
-        byte[] buffer = new byte[1024];
-        int size;
-        try {
-            while ((size = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, size);
+                while ((inputLine = in.readLine()) != null)
+                    result.append(inputLine).append("\n");
+
+                in.close();
+
+            } catch (MalformedURLException e) {
+                System.err.println(String.format("Incorrect URL <%s>!", url));
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            outputStream.close();
-            inputStream.close();
-        } catch (IOException e) {
-            System.err.println("FIle cannot be reading!");
-            e.printStackTrace();
+
+            return result.toString();
         }
-        return outputStream.toString();
+
+        private ArrayList<Book> parseBooks(String jsonText) throws ParseException {
+            ArrayList<Book> result = new ArrayList<>();
+
+            JSONObject jsonObject = (JSONObject) new JSONParser().parse(jsonText);
+
+            JSONArray books = (JSONArray) jsonObject.get("books");
+            for (Object book : books) {
+                JSONObject tmp = (JSONObject) book;
+                result.add(new Book(
+                        (String) tmp.get("title"),
+                        (String) tmp.get("subtitle"),
+                        (String) tmp.get("isbn13"),
+                        (String) tmp.get("price"),
+                        (String) tmp.get("image")
+                ));
+            }
+
+            return result;
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.M)
+        private ArrayList<Book> search(String newText){
+            String jsonResponse = String.format("https://api.itbook.store/1.0/search/\"%s\"", newText);
+            try {
+                ArrayList<Book> books = parseBooks(getRequest(jsonResponse));
+                return books;
+            } catch (ParseException e) {
+                System.err.println("Incorrect content of JSON file!");
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.M)
+        @Override
+        protected ArrayList<Book> doInBackground(String... strings) {
+            return search(strings[0]);
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.M)
+        @Override
+        protected void onPostExecute(ArrayList<Book> books) {
+            super.onPostExecute(books);
+            Lab3Fragment.loadBooks(books);
+        }
     }
 
-    private static int getResId(String resName, Class<?> c) {
-        try {
-            Field idField = c.getDeclaredField(resName);
-            return idField.getInt(idField);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return -1;
-        }
-    }
+    public static class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+        @SuppressLint("StaticFieldLeak")
+        ImageView bmImage;
+        @SuppressLint("StaticFieldLeak")
+        ProgressBar loadingBar;
+        @SuppressLint("StaticFieldLeak")
+        Context context;
 
-    private ArrayList<Book> parseBooks(String jsonText) throws ParseException {
-        ArrayList<Book> result = new ArrayList<>();
-
-        JSONObject jsonObject = (JSONObject) new JSONParser().parse(jsonText);
-
-        JSONArray books = (JSONArray) jsonObject.get("books");
-        for (Object book : books) {
-            JSONObject tmp = (JSONObject) book;
-            result.add(new Book(
-                    (String) tmp.get("title"),
-                    (String) tmp.get("subtitle"),
-                    (String) tmp.get("isbn13"),
-                    (String) tmp.get("price"),
-                    (String) tmp.get("image")
-            ));
+        public DownloadImageTask(ImageView bmImage, ProgressBar loadingBar, Context context) {
+            this.bmImage = bmImage;
+            this.loadingBar = loadingBar;
+            this.context = context;
         }
 
-        return result;
+        protected Bitmap doInBackground(String... urls) {
+            String urldisplay = urls[0];
+            Bitmap mIcon11 = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                mIcon11 = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                Log.e("Error", e.getMessage());
+                e.printStackTrace();
+            }
+            return mIcon11;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            if (result != null)
+                bmImage.setImageBitmap(result);
+            else {
+                bmImage.setBackgroundResource(R.drawable.no_image);
+                Toast.makeText(context, "Cannot load data!", Toast.LENGTH_LONG).show();
+            }
+            loadingBar.setVisibility(View.GONE);
+            bmImage.setVisibility(View.VISIBLE);
+        }
     }
 }
